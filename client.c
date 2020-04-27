@@ -6,11 +6,15 @@
 #include <pthread.h>
 #include <string.h>
 
+#define MESSAGE_LENGTH 280
+
 // structure for message queue 
 struct _mbuffer { 
 	long mtype; 
-	char mtext[100]; 
+	char mtext[MESSAGE_LENGTH]; 
 } message[2]; 
+//message[0] -> Enviar
+//message[1] -> Recibir
 
 void* th_sendMessage (void* unused);
 void* th_receiveMessage(void* unused);
@@ -18,14 +22,14 @@ void* th_receiveMessage(void* unused);
 int msgid; //for queue
 
 pid_t pidCliente; //pid CLiente
-pthread_t id_th_2;
+pthread_t id_th_2; ///Variable global para guardar el hilo
 
 int main(int argc, char const *argv[])
 {
     
-    key_t key;
+    key_t key; //Llave de la cola
 
-    key = ftok("/tmp/msgid1.txt", 999);
+    key = ftok("/tmp/msgid1.txt", 999); //Creación de la llave. 
     
     
     msgid = msgget(key, 0666 | IPC_CREAT); //queue creation
@@ -45,25 +49,28 @@ int main(int argc, char const *argv[])
             int length; 
             pidCliente = getpid(); //Guardo el pid de este proceso
             message[0].mtype = 10; //Identificador de la cola del servidor
-            sprintf(message[0].mtext, "%d", pidCliente); //Lo convierto 
+            sprintf(message[0].mtext, "%d", pidCliente); //Lo convierto y paso a message[0].mtext. 
             length = strlen(message[0].mtext);
 
 
             if (message[0].mtext[length-1] == '\n')
                 message[0].mtext[length-1] = '\0';
 
-            if( msgsnd(msgid, &message[0], length+1, 0) == -1 ) perror("msgsnd fails: ");
+            //Enviaré el PID del cliente al server. El tipo de mensaje es 10
+            if( msgsnd(msgid, &message[0], length+1, 0) == -1 ) perror("msgsnd fails: "); 
             
             while (1)
             {
+                                                                        //pidCliente es el tipo de mensaje que me mandan
                 if ( msgrcv(msgid, &message[1], sizeof(message[1].mtext), pidCliente, 0) != -1)
                 {
-                    //printf("se recibio\n");
-                    //printf("\nServer: %s\n",message[1].mtext);
+                    
+                    printf("\n%s\n",message[1].mtext);
                     if(strncmp(message[1].mtext,"exitoso",7) == 0){
+                        printf("se recibió exitoso\n");
                         // if( pthread_create (&id_th_1,NULL,&th_sendMessage,NULL) == -1) perror ("thread1 creation fails: ");
                         if( pthread_create (&id_th_2,NULL,&th_receiveMessage,NULL) == -1) perror ("thread2 creation fails: ");
-                        
+                        printf("hilo creado");
                         // if( pthread_join (id_th_1,NULL) == -1) perror ("thread1 join fails: ");
                         // if( pthread_join (id_th_2,NULL) == -1) perror ("thread2 join fails: ");
                         pthread_join (id_th_2,NULL);

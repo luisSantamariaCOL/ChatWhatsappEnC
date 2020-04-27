@@ -25,8 +25,10 @@ long arrayPid[SIZE];
 void* th_sendMessage (void* unused);
 void* th_receiveMessage(void* unused);
 void* th_receiveSincronization(void* unused);
+void* th_disconnectUser(void* unused);
 void  cerrarServicio(void);
 void broadcast(char *message);
+
 
 
 int main(int argc, char const *argv[])
@@ -44,7 +46,7 @@ int main(int argc, char const *argv[])
      //pthread_t id_th_1;
      //pthread_t id_th_2;
     
-    if( pthread_create (&id_sincronization,NULL,&th_receiveSincronization,NULL) == -1) perror ("thread1 creation fails: ");
+    if( pthread_create (&id_sincronization,NULL,&th_receiveSincronization,NULL) == -1) perror ("thread receiveSincronization creation fails: ");
     
     // if( pthread_create (&id_th_1,NULL,&th_sendMessage,NULL) == -1) perror ("thread1 creation fails: ");
     // if( pthread_create (&id_th_2,NULL,&th_receiveMessage,NULL) == -1) perror ("thread2 creation fails: ");
@@ -144,6 +146,48 @@ void* th_receiveSincronization(void* unused){
     //guardo el pid
     //Enviarle un mensaje a todos los procesos diciendo que alguien se conecto
     //responderle exito o fracaso
+    return NULL;
+}
+
+void* th_disconnectUser(void* unused){
+
+    while (1) //garantizo que el servidor leyo un mensaje
+        {
+            if( msgrcv(msgid, &message[1], sizeof(message[1].mtext), 10, 0) != -1){
+                break;
+            }
+
+            char *bufferUsuario;
+            for (int i = 0; i < count_users; i++)
+            {
+                sprintf(bufferUsuario,"%ld",arrayPid[i]);
+                if (strncmp(bufferUsuario, message[1].mtext, 4) == 0)
+                {
+                    int length;
+                //Mandar mensaje al usuario: "te has desconectado"
+                    message[0].mtype = (long) atoi(message[1].mtext);
+                    //printf("Variable %d\n", (int)message[0].mtype);
+                    sprintf(message[0].mtext,"%s","te has desconectado");
+                    length = strlen(message[0].mtext);
+                    if( msgsnd(msgid, &message[0], length+1, 0) == -1 ) perror("msgsnd fails: ");
+
+                //Reorganizar array de Pid's
+                    for (int j = i; i < (count_users-1); i++)
+                    {
+                        arrayPid[j] = arrayPid[j+1];
+                    }
+                    count_users--;
+                //Mandar mensaje a todos los usuarios
+                    char aux[MESSAGE_LENGTH];
+                    sprintf(aux,"Server:\nCliente desconectado: %s", bufferUsuario);
+                    broadcast(aux);
+                    break;
+                }
+                
+            }
+            
+        }
+
     return NULL;
 }
 
