@@ -16,6 +16,9 @@ struct _mbuffer {
 } message[2]; 
 
 int msgid; 
+int msgid_desconectar;
+int msgid_comunicacion;
+
 int count_users = 0;
 char *bufferSalida = "exit";
 
@@ -28,33 +31,26 @@ void* th_receiveSincronization(void* unused);
 void* th_disconnectUser(void* unused);
 void  cerrarServicio(void);
 void broadcast(char *message);
-
+void createQueue(void);
 
 
 int main(int argc, char const *argv[])
 {
     
-    key_t key;
-
-    key = ftok("/tmp/msgid1.txt", 999); //key id 1
-    
-    
-    msgid = msgget(key, 0666 | IPC_CREAT); //queue creation
+    createQueue();
     
 
     pthread_t id_sincronization;
+    pthread_t id_disconnectUser;
      //pthread_t id_th_1;
      //pthread_t id_th_2;
     
+
     if( pthread_create (&id_sincronization,NULL,&th_receiveSincronization,NULL) == -1) perror ("thread receiveSincronization creation fails: ");
-    
+    if( pthread_create (&id_disconnectUser,NULL,&th_disconnectUser,NULL) == -1) perror("thread disconnectUser failed: ");
     // if( pthread_create (&id_th_1,NULL,&th_sendMessage,NULL) == -1) perror ("thread1 creation fails: ");
     // if( pthread_create (&id_th_2,NULL,&th_receiveMessage,NULL) == -1) perror ("thread2 creation fails: ");
    
-    if( pthread_join (id_sincronization,NULL) == -1) perror ("thread1 join fails: ");
-    // if( pthread_join (id_th_1,NULL) == -1) perror ("thread1 join fails: ");
-    // if( pthread_join (id_th_2,NULL) == -1) perror ("thread2 join fails: ");
-
     char bufferComando[4];
     while (1)
     {
@@ -70,6 +66,14 @@ int main(int argc, char const *argv[])
         }
         
     }
+
+
+    if( pthread_join (id_sincronization,NULL) == -1) perror ("thread1 join fails: ");
+    if( pthread_join (id_disconnectUser,NULL) == -1) perror ("thread2 join fails: ");
+    // if( pthread_join (id_th_1,NULL) == -1) perror ("thread1 join fails: ");
+    // if( pthread_join (id_th_2,NULL) == -1) perror ("thread2 join fails: ");
+
+    
 
     return 0;
 }
@@ -100,7 +104,7 @@ void* th_receiveMessage(void* unused){
     while (1)
     {
     msgrcv(msgid, &message[1], sizeof(message[1].mtext), 10, 0); 
-  
+    
     printf("\nClient: %s",message[1].mtext);
     }
     
@@ -123,10 +127,10 @@ void* th_receiveSincronization(void* unused){
         if (count_users<SIZE)
         {
             count_users++;
-            sprintf(message[0].mtext,"%s","exitoso");
+            //sprintf(message[0].mtext,"%s","exitoso");
             arrayPid[count_users-1] =  (long) atoi(message[1].mtext);
             char aux[MESSAGE_LENGTH];
-            sprintf(aux,"Server:\nNuevo cliente conectado %ld", arrayPid[count_users-1]);
+            sprintf(aux,"Server: Nuevo cliente conectado %ld", arrayPid[count_users-1]);
             broadcast(aux);
         }
         else{
@@ -156,12 +160,11 @@ void* th_disconnectUser(void* unused){
             if( msgrcv(msgid, &message[1], sizeof(message[1].mtext), 10, 0) != -1){
                 break;
             }
-
             char *bufferUsuario;
             for (int i = 0; i < count_users; i++)
             {
                 sprintf(bufferUsuario,"%ld",arrayPid[i]);
-                if (strncmp(bufferUsuario, message[1].mtext, 4) == 0)
+                if (strcmp(bufferUsuario, message[1].mtext) == 0)
                 {
                     int length;
                 //Mandar mensaje al usuario: "te has desconectado"
@@ -169,7 +172,7 @@ void* th_disconnectUser(void* unused){
                     //printf("Variable %d\n", (int)message[0].mtype);
                     sprintf(message[0].mtext,"%s","te has desconectado");
                     length = strlen(message[0].mtext);
-                    if( msgsnd(msgid, &message[0], length+1, 0) == -1 ) perror("msgsnd fails: ");
+                    if( msgsnd(msgid_desconectar, &message[0], length+1, 0) == -1 ) perror("msgsnd fails: ");
 
                 //Reorganizar array de Pid's
                     for (int j = i; i < (count_users-1); i++)
@@ -179,13 +182,11 @@ void* th_disconnectUser(void* unused){
                     count_users--;
                 //Mandar mensaje a todos los usuarios
                     char aux[MESSAGE_LENGTH];
-                    sprintf(aux,"Server:\nCliente desconectado: %s", bufferUsuario);
+                    sprintf(aux,"Server:Cliente desconectado: %s", bufferUsuario);
                     broadcast(aux);
                     break;
                 }
-                
-            }
-            
+            }   
         }
 
     return NULL;
@@ -194,6 +195,8 @@ void* th_disconnectUser(void* unused){
 void cerrarServicio(){
 
         if(msgctl(msgid, IPC_RMID, NULL) == -1) perror ("msfctl");
+         if(msgctl(msgid_desconectar, IPC_RMID, NULL) == -1) perror ("msfctl");
+          if(msgctl(msgid_comunicacion, IPC_RMID, NULL) == -1) perror ("msfctl");
         //y demas servicios
 
         return;
@@ -207,8 +210,25 @@ void broadcast(char *message){
     {
         buffer.mtype = arrayPid[i];
         length = strlen(buffer.mtext);
-        if( msgsnd(msgid, &buffer, length+1, 0) == -1 ) perror("msgsnd fails: ");
+        if( msgsnd(msgid_comunicacion, &buffer, length+1, 0) == -1 ) perror("msgsnd fails: ");
     }
 
+    return;
+}
+
+void createQueue(){
+    key_t key;
+    key_t key_desconectar;
+    key_t key_comunicacion;
+
+
+    key = ftok("/tmp/msgid1.txt", 999); //key id
+    msgid = msgget(key, 0666 | IPC_CREAT); //queue creation
+
+    key_desconectar = ftok("/tmp/msgid2.txt", 998); //key id
+    msgid_desconectar = msgget(key_desconectar, 0666 | IPC_CREAT);
+
+    key_comunicacion = ftok("/tmp/msgid3.txt", 997); //key id
+    msgid_comunicacion = msgget(key_comunicacion, 0666 | IPC_CREAT);
     return;
 }
