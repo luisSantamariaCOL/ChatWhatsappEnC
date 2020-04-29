@@ -65,6 +65,7 @@ int main(int argc, char const *argv[])
                 message[0].mtext[length-1] = '\0';
 
             //Enviaré el PID del cliente al server. El tipo de mensaje es 10
+            
             if( msgsnd(msgid, &message[0], length+1, 0) == -1 ) perror("msgsnd fails: "); 
             
             while (1)
@@ -135,6 +136,30 @@ void* th_sendMessage (void* unused){
                     }
                 }
         }
+        //
+        if (strncmp(message[0].mtext,"put ", 4) == 0)
+        {
+            length=strlen(message[0].mtext);
+            char archivo[15];
+            for(int i = 0; i < (length-3); i++)
+            archivo[i] = message[0].mtext[i+4];
+            printf("%d %d\n", (int) strlen(message[0].mtext), (int) strlen(archivo));
+            FILE *Fin = fopen(archivo, "r");
+            if (Fin == NULL) {
+                perror("error Leer archivo: ");
+            }
+            char linea[50];
+            sprintf(message[0].mtext,"%s envia ARCHIVO --> %s,\n Contenido: \n",identificadorUsuario,archivo);
+            while(fgets(linea,sizeof(linea),Fin)!=NULL){
+                strcat(message[0].mtext,linea);
+            }
+            fclose(Fin);
+            strcat(message[0].mtext,"\n Fin del archivo\n");
+            length = strlen(message[0].mtext);
+            //printf("%s \n",buffer[0].mtext);
+        msgsnd(msgid_comunicacion, &message[0], length+1, 0);
+        }
+        
         else if(strlen(message[0].mtext)>1)
         {
             // printf("mensaje mandado por comunicacion\n");
@@ -183,6 +208,15 @@ y devolverle un mensaje al cliente.
 */
 
 /*
+ FUNCIÓN ARCHIVOS:
+ 1. en la funcion de if que compara con salir. Pongo otro if y hago un strcmp.  //"put nombreArchivo"
+ 2. Ese archivo lo leo linea a linea y se lo concateno a buffer. (se puede hacer con una función)
 
+
+
+
+
+ codigo fuente:
+                   
 */
 
