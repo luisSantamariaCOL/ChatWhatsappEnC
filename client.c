@@ -45,18 +45,18 @@ int main(int argc, char const *argv[])
     key_comunicacion = ftok("/tmp/msgid3.txt", 997); //key id
     msgid_comunicacion = msgget(key_comunicacion, 0666 | IPC_CREAT);
 
-    
+    pidCliente = getpid(); //Guardo el pid de este proceso
+
     int  comando;
     while(comando!=0){
     printf("presiona 1 para enviarle una solicitud de conexión al servidor\n");
     scanf("%d",&comando);
         if(comando==1){
 
-       
-
             int length; 
-            pidCliente = getpid(); //Guardo el pid de este proceso
+            
             message[0].mtype = 10; //Identificador de la cola del servidor
+            memset(message[0].mtext,0,MESSAGE_LENGTH); //limpio aux
             sprintf(message[0].mtext, "%d", pidCliente); //Lo convierto y paso a message[0].mtext. 
             length = strlen(message[0].mtext);
 
@@ -66,30 +66,34 @@ int main(int argc, char const *argv[])
 
             //Enviaré el PID del cliente al server. El tipo de mensaje es 10
             if( msgsnd(msgid, &message[0], length+1, 0) == -1 ) perror("msgsnd fails: "); 
+            
             while (1)
             {
+                //memset(message[1].mtext,0,MESSAGE_LENGTH); //limpio aux
                     //pidCliente es el tipo de mensaje que me mandan
-                if ( msgrcv(msgid, &message[1], sizeof(message[1].mtext), pidCliente, 0) != -1)
-                {
-                    //"EXITOSO"
-                    printf("%s\n",message[1].mtext);
-                    if(strncmp(message[1].mtext,"exitoso",7) == 0){
-                        if( pthread_create (&id_th_1,NULL,&th_sendMessage,NULL) == -1) perror ("thread1 creation fails: ");
-                        if( pthread_create (&id_th_2,NULL,&th_receiveMessage,NULL) == -1) perror ("thread2 creation fails: ");
-                        //if( pthread_join (id_th_1,NULL) == -1) perror ("thread1 join fails: ");
-                        //if( pthread_join (id_th_2,NULL) == -1) perror ("thread2 join fails: ");
-                        pthread_join (id_th_1,NULL);
-                        pthread_join (id_th_2,NULL);
-                        break;
-                    }
-                    if(strncmp(message[1].mtext,"limite de usuarios excedido",8) == 0){
-                        printf("no se pudo conectar");
-                        break;
-                    }
-            
-                }
+                if ( msgrcv(msgid, &message[1], sizeof(message[1].mtext), pidCliente, 0) != -1){
+                    printf("mensaje recibido\n");
+                    break;
+                } 
+  
             }
-        
+             //"EXITOSO"
+                //printf("longitud de mensaje %d\n",(int) strlen(message[1].mtext));
+                printf("La respuesta del servidor es: %s\n",message[1].mtext);
+                if(strncmp(message[1].mtext,"exitoso",7) == 0){
+                    if( pthread_create (&id_th_1,NULL,&th_sendMessage,NULL) == -1) perror ("thread1 creation fails: ");
+                    if( pthread_create (&id_th_2,NULL,&th_receiveMessage,NULL) == -1) perror ("thread2 creation fails: ");
+                    //if( pthread_join (id_th_1,NULL) == -1) perror ("thread sendMessage fails: ");
+                    //if( pthread_join (id_th_2,NULL) == -1) perror ("thread receiveMessage join fails: ");
+                    pthread_join (id_th_1,NULL);
+                    pthread_join (id_th_2,NULL);
+                    break;
+                }
+                    
+                if(strncmp(message[1].mtext,"limite de usuarios excedido",8) == 0){
+                    printf("no se pudo conectar");
+                    break;
+                }
 
         }
     }
@@ -101,39 +105,58 @@ void* th_sendMessage (void* unused){
     int length;
     pidCliente = getpid();
     message[0].mtype = 10;
-
+    char identificadorUsuario[MESSAGE_LENGTH];
+    sprintf(identificadorUsuario,"User %d: ", pidCliente);
     while (activo == 1)
     {
         //limpiando mensaje
         length = strlen(message[0].mtext);
         memset(message[0].mtext,0,length);
-        if( fgets(message[0].mtext, sizeof(message[0].mtext), stdin ) != NULL)
+        while (1)
         {
+            if( fgets(message[0].mtext, sizeof(message[0].mtext), stdin ) != NULL) break;
+        }
+        
+        
+        length = strlen(message[0].mtext);
+        if (message[0].mtext[length-1] == '\n')
+            message[0].mtext[length-1] = '\0';
+        if(strncmp(message[0].mtext,"salir",5) == 0){
+            sprintf(message[0].mtext, "%d", pidCliente); //Lo convierto y paso a message[0].mtext. 
             length = strlen(message[0].mtext);
-            if (message[0].mtext[length-1] == '\n')
-                message[0].mtext[length-1] = '\0';
-            if(strncmp(message[0].mtext,"salir",5) == 0){
-                sprintf(message[0].mtext, "%d", pidCliente); //Lo convierto y paso a message[0].mtext. 
-                length = strlen(message[0].mtext);
-                msgsnd(msgid_desconectar, &message[0], length+1, 0);
-                 while (activo == 1)
-                 {
-                    //pidCliente es el tipo de mensaje que me mandan
+            msgsnd(msgid_desconectar, &message[0], length+1, 0);
+                while (activo == 1)
+                {
+                //pidCliente es el tipo de mensaje que me mandan
                     if ( msgrcv(msgid, &message[1], sizeof(message[1].mtext), pidCliente, 0) != -1)
                     {
-                        printf("%s\n",message[1].mtext);
+                        printf("\"%s\"\n",message[1].mtext);
                         activo = 0;
                         return NULL;
-                
                     }
                 }
-            }
-            msgsnd(msgid, &message[0], length+1, 0);
+        }
+        else if(strlen(message[0].mtext)>1)
+        {
+            // printf("mensaje mandado por comunicacion\n");
+            length = strlen(message[0].mtext);
+            strncat(identificadorUsuario, message[0].mtext,length);
+            sprintf(message[0].mtext,"%s",identificadorUsuario);
+            length = strlen(message[0].mtext);
+            msgsnd(msgid_comunicacion, &message[0], length+1, 0);
         }
     }
     // 1. eliminar los mensajes innecesarios
     // 2. crear en el servidor el hilo para recibir mensajes de la cola de comunicación.
 
+    // 1. eliminar los mensajes innecesarios
+    // 2. crear en el servidor el hilo para recibir mensajes de la cola de comunicación.
+
+    //Utilizaremos diferentes buffer.
+    //En el cliente me aseguro que en mandar mensaje, utilicemos un buffer local especifico. (estructura).
+    //Lo mismo para todas partes.
+    //Todos tienen su buffer local
+    
     return NULL;
 }
 
@@ -141,8 +164,11 @@ void* th_receiveMessage(void* unused){
 
     while (activo == 1)
     {
-        msgrcv(msgid_comunicacion, &message[1], sizeof(message[1].mtext), pidCliente, 0); 
-    
+        //memset(message[1].mtext,0,MESSAGE_LENGTH); //limpio aux
+        while (1)
+        {
+            if ( msgrcv(msgid_comunicacion, &message[1], sizeof(message[1].mtext), pidCliente, 0)  != -1) break;  
+        }
         printf("%s\n",message[1].mtext);
     }
     
