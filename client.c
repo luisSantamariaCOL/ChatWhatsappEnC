@@ -49,7 +49,7 @@ int main(int argc, char const *argv[])
 
     int  comando;
     while(comando!=0){
-    printf("presiona 1 para enviarle una solicitud de conexión al servidor\n");
+    printf("Presione 0 si desea terminar la ejecución del cliente\nPresione 1 si desea enviarle una solicitud de conexión al servidor\n");
     scanf("%d",&comando);
         if(comando==1){
 
@@ -87,12 +87,11 @@ int main(int argc, char const *argv[])
                     //if( pthread_join (id_th_2,NULL) == -1) perror ("thread receiveMessage join fails: ");
                     pthread_join (id_th_1,NULL);
                     pthread_join (id_th_2,NULL);
-                    break;
+                    
                 }
                     
                 if(strncmp(message[1].mtext,"limite de usuarios excedido",8) == 0){
                     printf("no se pudo conectar");
-                    break;
                 }
 
         }
@@ -112,7 +111,7 @@ void* th_sendMessage (void* unused){
         //limpiando mensaje
         length = strlen(message[0].mtext);
         memset(message[0].mtext,0,length);
-        while (1)
+        while (activo == 1)
         {
             if( fgets(message[0].mtext, sizeof(message[0].mtext), stdin ) != NULL) break;
         }
@@ -146,16 +145,7 @@ void* th_sendMessage (void* unused){
             msgsnd(msgid_comunicacion, &message[0], length+1, 0);
         }
     }
-    // 1. eliminar los mensajes innecesarios
-    // 2. crear en el servidor el hilo para recibir mensajes de la cola de comunicación.
-
-    // 1. eliminar los mensajes innecesarios
-    // 2. crear en el servidor el hilo para recibir mensajes de la cola de comunicación.
-
-    //Utilizaremos diferentes buffer.
-    //En el cliente me aseguro que en mandar mensaje, utilicemos un buffer local especifico. (estructura).
-    //Lo mismo para todas partes.
-    //Todos tienen su buffer local
+    
     
     return NULL;
 }
@@ -169,6 +159,13 @@ void* th_receiveMessage(void* unused){
         {
             if ( msgrcv(msgid_comunicacion, &message[1], sizeof(message[1].mtext), pidCliente, 0)  != -1) break;  
         }
+        if (strncmp(message[1].mtext,"desconectarse",13) == 0 )
+        {
+            printf("El chat ha terminado. No vuelva.\n");
+            activo = 0;
+            return NULL;
+        }
+        
         printf("%s\n",message[1].mtext);
     }
     
@@ -183,5 +180,9 @@ Y a los otros pid reordenarlos.
 Crear una cola, recibir un mensaje igual al de arriba (while hasta que lo recibe).
 Luego reorganizo un usuario y pongo un mensaje que diga que se desconectó.
 y devolverle un mensaje al cliente.
+*/
+
+/*
+
 */
 

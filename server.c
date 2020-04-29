@@ -5,6 +5,7 @@
 #include <pthread.h> 
 #include <string.h>
 #include <stdlib.h> //para el atoi
+#include <unistd.h>
 
 #define SIZE 20
 #define MESSAGE_LENGTH 280
@@ -60,6 +61,8 @@ int main(int argc, char const *argv[])
         scanf("%s",bufferComando);
         if (strncmp(bufferComando,bufferSalida,4) == 0)
         {
+            broadcast("desconectarse");
+            sleep(2);
             if(msgctl(msgid, IPC_RMID, NULL) == -1) perror ("msfctl msgid :");
             if(msgctl(msgid_desconectar, IPC_RMID, NULL) == -1) perror ("msfctl msgid_desconectar:");
             if(msgctl(msgid_comunicacion, IPC_RMID, NULL) == -1) perror ("msfctl msgid_comunicacion :");
