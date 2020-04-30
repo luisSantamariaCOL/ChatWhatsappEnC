@@ -58,15 +58,17 @@ int main(int argc, char const *argv[])
     int  conectar = 1;
     int length_VI;
 
-    while(conectar!=0){
+    while(1){
         printf("Ingrese yes si desea conectarse al grupo\n");
         fgets(valorIngresado,MESSAGE_LENGTH,stdin);
         length_VI = strlen(valorIngresado);
     
         if (valorIngresado[length_VI-1] == '\n')
                 valorIngresado[length_VI-1] = '\0';
-         conectar = strcmp(valorIngresado, "yes");
-        if(conectar == 0){
+        conectar = strcmp(valorIngresado, "yes");
+        if (conectar == 0)
+            break;
+    }
 
             int length_m; 
             
@@ -91,21 +93,21 @@ int main(int argc, char const *argv[])
   
             }
 
-                printf("Servidor: %s, se puede conectar.\n",message[1].mtext);
-                if(strcmp(message[1].mtext,"exitoso") == 0){
-                    pthread_create (&id_th_1,NULL,&th_sendMessage,NULL);
-                    pthread_create (&id_th_2,NULL,&th_receiveMessage,NULL);
+            printf("Servidor: %s, se puede conectar.\n",message[1].mtext);
+            if(strcmp(message[1].mtext,"exitoso") == 0){
+                pthread_create (&id_th_1,NULL,&th_sendMessage,NULL);
+                pthread_create (&id_th_2,NULL,&th_receiveMessage,NULL);
 
-                    pthread_join (id_th_1,NULL);
-                    pthread_join (id_th_2,NULL);
+                pthread_join (id_th_1,NULL);
+                pthread_join (id_th_2,NULL);
+    
+            } 
+            else if(strcmp(message[1].mtext,"limite de usuarios excedido") == 0){
+                printf("no se pudo conectar");
+                exit(EXIT_FAILURE);
+            }
         
-                } 
-                else if(strcmp(message[1].mtext,"limite de usuarios excedido") == 0){
-                    printf("no se pudo conectar");
-                    exit(EXIT_FAILURE);
-                }
-        }
-    }
+    
      
     return 0;
 }
@@ -135,6 +137,7 @@ void* th_sendMessage (void* unused){
         }
 
         if( strncmp(message[0].mtext,"salir",5) == 0){
+            message[0].mtype = 99;
             sprintf(message[0].mtext, "%d", pidCliente); //Lo convierto y paso a message[0].mtext. 
             length_SM = strlen(message[0].mtext);
             msgsnd(msgid_desconectar, &message[0], length_SM+1, 0);
@@ -157,7 +160,7 @@ void* th_sendMessage (void* unused){
             char archivo[15];
             for(int i = 0; i < (length_SM-3); i++)
             archivo[i] = message[0].mtext[i+4];
-            printf("%d %d\n", (int) strlen(message[0].mtext), (int) strlen(archivo));
+            //printf("%d %d\n", (int) strlen(message[0].mtext), (int) strlen(archivo));
             FILE *Fin = fopen(archivo, "r");
             if (Fin == NULL) {
                 perror("error Leer archivo: ");
@@ -171,18 +174,19 @@ void* th_sendMessage (void* unused){
             strcat(message[0].mtext,"\n Fin del archivo\n");
             length_SM = strlen(message[0].mtext);
             //printf("%s \n",buffer[0].mtext);
+            msgsnd(msgid_comunicacion, &message[0], length_SM+1, 0);
         }
 
         else if( length_SM > 1)
         {
-            
+ 
             length_SM = strlen(message[0].mtext);
-            strncat(identificadorUsuario, message[0].mtext,length_SM);
+            strncat(identificadorUsuario, message[0].mtext,length_SM); //
             sprintf(message[0].mtext,"%s",identificadorUsuario);
             length_SM = strlen(message[0].mtext);
             msgsnd(msgid_comunicacion, &message[0], length_SM+1, 0);
-            //memset(message[0].mtext,0,length_SM);
-            
+
+            //memset(message[0].mtext,0,length_SM);  
         }
     }
     

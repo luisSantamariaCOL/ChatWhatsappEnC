@@ -100,19 +100,21 @@ void* th_receiveMessage(void* unused){
     while (1)
     {
 
-        memset(buffer.mtext,0,MESSAGE_LENGTH); 
+        //memset(buffer.mtext,0,MESSAGE_LENGTH); 
         while (1)
         {   
-            
             if( msgrcv(msgid_comunicacion, &buffer, sizeof(buffer.mtext), 10, 0) != -1){
                 break;
             }
 
         }
+        //printf("llegó el mensaje \"%s\"\n",buffer.mtext);
         memset(aux_receiveMessage,0,MESSAGE_LENGTH);
         sprintf(aux_receiveMessage,"%s", buffer.mtext);
         printf("%s\n",aux_receiveMessage);
+        //printf("se mandará mensaje al broadcast\n");
         broadcast(aux_receiveMessage);
+        //printf("se mandó mensaje al broadcast\n");
         
     }
     
@@ -175,7 +177,7 @@ void* th_disconnectUser(void* unused){
             memset(message[1].mtext,0,MESSAGE_LENGTH); //limpio aux
             while (1)
             {
-                if( msgrcv(msgid_desconectar, &message[1], sizeof(message[1].mtext), 10, 0) != -1)
+                if( msgrcv(msgid_desconectar, &message[1], sizeof(message[1].mtext), 99, 0) != -1)
                     break;
             }
             
@@ -218,7 +220,7 @@ void* th_disconnectUser(void* unused){
 
 
 void broadcast(char *msg){
-
+    printf("entro al broadcast");
     // printf("numero de usuarios: %d\n",count_users);
     int length;
     //struct _mbuffer buffer;
