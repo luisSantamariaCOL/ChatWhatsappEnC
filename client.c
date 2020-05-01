@@ -307,23 +307,3 @@ void cerrarServicios(){ //Cerrar todas las colas
     printf("Servicios de cliente exitosamente cerrados\n");
     exit(EXIT_SUCCESS);
 }
-
-
-/*
- FUNCIÓN ARCHIVOS:
- 1. en la funcion de if que compara con salir. Pongo otro if y hago un strcmp.  //"put nombreArchivo"
- 2. Ese archivo lo leo linea a linea y se lo concateno a buffer. (se puede hacer con una función)
-
-
-REVISAR DEL TODO.
-1. Conectar más de 3 clientes.
-2. Enviar mensajes
-3. Desconectar un cliente
-4. Conectar otro cliente
-5. Enviar más mensajes
-6. Enviar un archivo
-7. desconectar un cliente
-8. Enviar más mensajes
-9. Cerrar el servidor
-*/
-
