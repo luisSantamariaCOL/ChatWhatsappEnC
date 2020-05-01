@@ -1,4 +1,4 @@
-// C Program for Message Queue (Writer Process) 
+//Server.c
 #include <stdio.h> 
 #include <sys/ipc.h> 
 #include <sys/msg.h> 
@@ -11,7 +11,7 @@
 #define SIZE 20
 #define MESSAGE_LENGTH 280
 
-// structure for message queue 
+//Estructura del mensaje 
 struct _mbuffer { 
 	long mtype; 
 	char mtext[MESSAGE_LENGTH]; 
@@ -28,33 +28,62 @@ char *bufferSalida = "exit";
 long arrayPid[SIZE];
 
 
-//void* th_sendMessage (void* unused);
+
 void* th_receiveMessage(void* unused);
 void* th_receiveSincronization(void* unused);
 void* th_disconnectUser(void* unused);
 void  cerrarServicios(void);
 void broadcast(char *msg);
-int validarIdentificador(char *msg);
+
 
 
 int main(int argc, char const *argv[])
 {
-    
-     key_t key;
+    //CREACIÓN DE LAS COLAS
+    key_t key;
     key_t key_desconectar;
     key_t key_comunicacion;
 
 
-    key = ftok("/tmp/msgid1.txt", 999); //key id
-    msgid = msgget(key, 0666 | IPC_CREAT); //queue creation
+    system("touch /tmp/msgid1.txt");
+    if ( (key = ftok("/tmp/msgid1.txt", 999)) == -1)
+    {
+        perror("ftok error: ");
+        exit(EXIT_FAILURE);
+    }
 
-    key_desconectar = ftok("/tmp/msgid2.txt", 998); //key id
-    msgid_desconectar = msgget(key_desconectar, 0666 | IPC_CREAT);
+    system("touch /tmp/msgid2.txt");
+    if ( (key_desconectar = ftok("/tmp/msgid2.txt", 998)) == -1)
+    {
+        perror("ftok_desconectar error: ");
+        exit(EXIT_FAILURE);
+    }
 
-    key_comunicacion = ftok("/tmp/msgid3.txt", 997); //key id
-    msgid_comunicacion = msgget(key_comunicacion, 0666 | IPC_CREAT);
+    system("touch /tmp/msgid3.txt");
+    if ( (key_comunicacion = ftok("/tmp/msgid3.txt", 997)) == -1)
+    {
+        perror("ftok_comunicacion error: ");
+        exit(EXIT_FAILURE);
+    }
+
+
+   
+    if( (msgid = msgget(key, 0666 | IPC_CREAT)) == -1){
+        perror("msgid error: ");
+        exit(EXIT_FAILURE);
+    }
+    if( (msgid_desconectar = msgget(key_desconectar, 0666 | IPC_CREAT)) == -1){
+        perror("msgid_desconectar error: ");
+        exit(EXIT_FAILURE);
+    }
+    if( (msgid_comunicacion = msgget(key_comunicacion, 0666 | IPC_CREAT)) == -1){
+        perror("msgid_comunicacion error: ");
+        exit(EXIT_FAILURE);
+    }
+     
     
 
+    //CREACIÓN DE LOS HILOS
     pthread_t id_sincronization;
     pthread_t id_disconnectUser;
     pthread_t id_receiveMessage;
@@ -64,7 +93,10 @@ int main(int argc, char const *argv[])
     pthread_create (&id_disconnectUser,NULL,&th_disconnectUser,NULL);
     pthread_create (&id_receiveMessage,NULL,&th_receiveMessage,NULL);
    
+
     char bufferComando[4];
+
+    //POR SI QUIERO CERRAR EL GRUPO
     while (1)
     {
         
@@ -86,6 +118,7 @@ int main(int argc, char const *argv[])
     pthread_join (id_disconnectUser,NULL);
     pthread_join (id_receiveMessage,NULL);
 
+    
     cerrarServicios();
 
     exit(EXIT_SUCCESS);
@@ -98,7 +131,7 @@ void* th_receiveMessage(void* unused){
     while (1)
     {
 
-        //memset(buffer.mtext,0,MESSAGE_LENGTH); 
+        
         while (1)
         {   
             if( msgrcv(msgid_comunicacion, &buffer, sizeof(buffer.mtext), 10, 0) != -1){
@@ -106,13 +139,11 @@ void* th_receiveMessage(void* unused){
             }
 
         }
-        //printf("llegó el mensaje \"%s\"\n",buffer.mtext);
+        
         memset(aux_receiveMessage,0,MESSAGE_LENGTH);
         sprintf(aux_receiveMessage,"%s", buffer.mtext);
         printf("%s\n",aux_receiveMessage);
-        //printf("se mandará mensaje al broadcast\n");
         broadcast(aux_receiveMessage);
-        //printf("se mandó mensaje al broadcast\n");
         
     }
     
@@ -120,7 +151,7 @@ void* th_receiveMessage(void* unused){
 }
 
 void* th_receiveSincronization(void* unused){
-    //se usa aux
+
     int length;
     while (1)
     {
@@ -141,7 +172,7 @@ void* th_receiveSincronization(void* unused){
             count_users++;
             sprintf(message[0].mtext,"%s","exitoso");
             arrayPid[count_users-1] =  (long) atoi(message[1].mtext);
-            //char aux[MESSAGE_LENGTH];
+
         }
         else{
             sprintf(message[0].mtext,"%s","limite de usuarios excedido");
@@ -167,7 +198,7 @@ void* th_receiveSincronization(void* unused){
 }
 
 void* th_disconnectUser(void* unused){
-    //se usa aux
+    
 
     while (1) //garantizo que el servidor leyo un mensaje
         {
@@ -192,7 +223,7 @@ void* th_disconnectUser(void* unused){
 
                     memset(message[0].mtext,0,MESSAGE_LENGTH); //limpio aux
                     message[0].mtype = (long) atoi(message[1].mtext);
-                    //printf("Variable %d\n", (int)message[0].mtype);
+
                     sprintf(message[0].mtext,"%s","Servidor: Salida exitosa. No vuelva");
                     length = strlen(message[0].mtext);
                     if( msgsnd(msgid_desconectar, &message[0], length+1, 0) == -1 ) perror("msgsnd fails: ");
@@ -219,15 +250,14 @@ void* th_disconnectUser(void* unused){
 
 void broadcast(char *msg){
 
-    // printf("numero de usuarios: %d\n",count_users);
-    int length;
-    //struct _mbuffer buffer;
 
-    //sprintf(buffer.mtext,"%s",msg);
+    int length;
+
+
+
     sprintf(message[0].mtext,"%s",msg);
     for (int i = 0; i < count_users; i++)
     {   
-        //memset(message[0].mtext,0,MESSAGE_LENGTH); //limpio aux
         message[0].mtype = arrayPid[i];
         length = strlen(message[0].mtext);
         if( msgsnd(msgid_comunicacion, &message[0], length+1, 0) == -1 ) perror("msgsnd fails: ");

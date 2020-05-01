@@ -1,4 +1,4 @@
-// C Program for Message Queue (Writer Process) 
+//Client.c
 #include <stdio.h> 
 #include <stdlib.h>
 #include <unistd.h>
@@ -11,24 +11,27 @@
 
 #define MESSAGE_LENGTH 280
 
-// structure for message queue 
+// Estructura para los mensajes de las queues
 struct _mbuffer { 
 	long mtype; 
 	char mtext[MESSAGE_LENGTH]; 
 } message[2]; 
-//message[0] -> Enviar
-//message[1] -> Recibir
+
+//message[0] -> Para Enviar
+//message[1] -> Para Recibir
 
 void* th_sendMessage (void* unused);
 void* th_receiveMessage(void* unused);
 void cerrarServicios();
 
-int msgid; //for queue
+//Ids de las queues
+int msgid; 
 int msgid_desconectar;
 int msgid_comunicacion;
 int activo = 1;
 
-pid_t pidCliente; //pid CLiente
+//Ids de los hilos
+pid_t pidCliente; 
 pthread_t id_th_1;
 pthread_t id_th_2;
 
@@ -38,7 +41,7 @@ int main(int argc, char const *argv[])
     
        
 
-    //CREACIÓN DE COLAS
+    //CREACIÓN DE LAS LLAVES
     key_t key;
     key_t key_desconectar;
     key_t key_comunicacion;
@@ -64,7 +67,7 @@ int main(int argc, char const *argv[])
         exit(EXIT_FAILURE);
     }
 
-
+    //CREACIÓN DE LAS COLAS
     if( (msgid = msgget(key, 0666 | IPC_CREAT)) == -1){
         perror("msgid error: ");
         exit(EXIT_FAILURE);
@@ -79,7 +82,8 @@ int main(int argc, char const *argv[])
     }
      
 
-    pidCliente = getpid(); //Guardo el pid de este proceso
+    //IDENTIFICADOR DEL PROCESO
+    pidCliente = getpid();
 
     char valorIngresado[MESSAGE_LENGTH];
     int  conectar = 1;
@@ -98,30 +102,39 @@ int main(int argc, char const *argv[])
             if (conectar == 0){
                 int length_m; 
                 
-                message[0].mtype = 11; //Identificador de la cola del servidor
-                memset(message[0].mtext,0,MESSAGE_LENGTH); //limpio aux
-                sprintf(message[0].mtext, "%d", pidCliente); //Lo convierto y paso a message[0].mtext. 
+                message[0].mtype = 11; //Identificador del mensaje para conectarse al servidor
+                memset(message[0].mtext,0,MESSAGE_LENGTH); //Limpieza del mensaje
+                sprintf(message[0].mtext, "%d", pidCliente); //Convierto el pidCliente de tipo int y lo paso a message[0].mtext. 
 
+                //Eliminar línea ('\n')
                 length_m = strlen(message[0].mtext);
                 if (message[0].mtext[length_m-1] == '\n')
                     message[0].mtext[length_m-1] = '\0';
 
-                //Enviaré el PID del cliente al server. El tipo de mensaje es 10
-                
+
+
+                //Enviaré como mensaje al server el Identificador del cliente             
                 if( msgsnd(msgid, &message[0], length_m+1, 0) == -1 ) perror("msgsnd fails: "); 
                 
                 while (1)
                 {
-
+                    //Recibiré del Servidor la respuesta de confirmación
                     if ( msgrcv(msgid, &message[1], sizeof(message[1].mtext), pidCliente, 0) != -1){
                         break;
                     } 
     
                 }
 
-                printf("Servidor: %s. Bienvenido al grupo!!!\n",message[1].mtext);
-                printf("NOTA: Puede escribir \"salir\" si desea salirse\n");
+                
+
+                
+                 //Si el servidor acepta...
                 if(strcmp(message[1].mtext,"exitoso") == 0){
+                   
+                    printf("Servidor: %s. Bienvenido al grupo!!!\n",message[1].mtext);
+                    printf("NOTA: Puede escribir \"salir\" si desea salirse\n");
+
+                    //Se crean los hilos
                     pthread_create (&id_th_1,NULL,&th_sendMessage,NULL);
                     pthread_create (&id_th_2,NULL,&th_receiveMessage,NULL);
 
@@ -145,6 +158,7 @@ int main(int argc, char const *argv[])
 }
 
 void* th_sendMessage (void* unused){
+
     int length_SM;
     pidCliente = getpid();
     message[0].mtype = 10;
@@ -152,9 +166,12 @@ void* th_sendMessage (void* unused){
     
     while (activo == 1)
     {
+        //longitud del mensaje
         length_SM = strlen(message[0].mtext);
+        //limpieza del mensaje
         memset(message[0].mtext,0,length_SM);
 
+        //buffer que almacena el identificador del cliente
         char identificadorUsuario[MESSAGE_LENGTH];
         sprintf(identificadorUsuario,"Cliente %d: ", pidCliente);
 
@@ -169,7 +186,7 @@ void* th_sendMessage (void* unused){
                 }
         }
 
-        //SALIR DEL PROGRAMA
+        //COMPARACION: SALIR DEL PROGRAMA
         if( strncmp(message[0].mtext,"salir",5) == 0){
             
             printf("¿En serio desea salirse? (yes/no): ");
@@ -209,14 +226,13 @@ void* th_sendMessage (void* unused){
            
         }
         
-        //MANDAR ARCHIVO 
+        //COMPARACION: MANDAR ARCHIVO 
         if ( strncmp(message[0].mtext,"put ", 4) == 0)
         {
             length_SM = strlen(message[0].mtext);
             char archivo[15];
             for(int i = 0; i < (length_SM-3); i++)
             archivo[i] = message[0].mtext[i+4];
-            //printf("%d %d\n", (int) strlen(message[0].mtext), (int) strlen(archivo));
             FILE *Fin = fopen(archivo, "r");
             if (Fin == NULL) {
                 perror("error Leer archivo: ");
@@ -229,7 +245,6 @@ void* th_sendMessage (void* unused){
             fclose(Fin);
             strcat(message[0].mtext,"\n Fin del archivo\n");
             length_SM = strlen(message[0].mtext);
-            //printf("%s \n",buffer[0].mtext);
             msgsnd(msgid_comunicacion, &message[0], length_SM+1, 0);
         }
 
@@ -243,7 +258,6 @@ void* th_sendMessage (void* unused){
             length_SM = strlen(message[0].mtext);
             msgsnd(msgid_comunicacion, &message[0], length_SM+1, 0);
 
-            //memset(message[0].mtext,0,length_SM);  
         }
     }
     
@@ -251,15 +265,17 @@ void* th_sendMessage (void* unused){
     return NULL;
 }
 
-void* th_receiveMessage(void* unused){
+void* th_receiveMessage(void* unused){ 
 
     while (activo == 1)
     {
-        //memset(message[1].mtext,0,MESSAGE_LENGTH); //limpio aux
+        //Recibiendo el mensaje
         while (1)
         {
             if ( msgrcv(msgid_comunicacion, &message[1], sizeof(message[1].mtext), pidCliente, 0)  != -1) break;  
         }
+
+        //Si el cliente recibe el mensaje "grupo cerrado", es porque el servidor cerró el chat.
         if (strncmp(message[1].mtext,"grupo cerrado",13) == 0 )
         {
             printf("Servidor: El grupo se ha cerrado. Por favor no vuelva.\n");
@@ -273,7 +289,8 @@ void* th_receiveMessage(void* unused){
     return NULL;
 }
 
-void cerrarServicios(){
+
+void cerrarServicios(){ //Cerrar todas las colas
 
     if( (msgctl(msgid, IPC_RMID, NULL)) == -1){
         perror("msgid error: ");
@@ -291,15 +308,6 @@ void cerrarServicios(){
     exit(EXIT_SUCCESS);
 }
 
-/*
-el hilo de eliminar usuario recibe un mensaje por esa cola, si recibe mensaje, elimina el pid que recibo.
-¿como elimino el pid?
-encontrar el pid y eliminarlo. 
-Y a los otros pid reordenarlos.
-Crear una cola, recibir un mensaje igual al de arriba (while hasta que lo recibe).
-Luego reorganizo un usuario y pongo un mensaje que diga que se desconectó.
-y devolverle un mensaje al cliente.
-*/
 
 /*
  FUNCIÓN ARCHIVOS:
