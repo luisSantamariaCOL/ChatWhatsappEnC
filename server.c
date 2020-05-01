@@ -32,7 +32,7 @@ long arrayPid[SIZE];
 void* th_receiveMessage(void* unused);
 void* th_receiveSincronization(void* unused);
 void* th_disconnectUser(void* unused);
-void  cerrarServicio(void);
+void  cerrarServicios(void);
 void broadcast(char *msg);
 int validarIdentificador(char *msg);
 
@@ -72,13 +72,11 @@ int main(int argc, char const *argv[])
         scanf("%s",bufferComando);
         if (strncmp(bufferComando,bufferSalida,4) == 0)
         {
-            broadcast("desconectarse");
-            sleep(2);
-            if(msgctl(msgid, IPC_RMID, NULL) == -1) perror ("msfctl msgid :");
-            if(msgctl(msgid_desconectar, IPC_RMID, NULL) == -1) perror ("msfctl msgid_desconectar:");
-            if(msgctl(msgid_comunicacion, IPC_RMID, NULL) == -1) perror ("msfctl msgid_comunicacion :");
+            broadcast("grupo cerrado");
 
-            printf("\n\n---se cerraron servicios---\n");
+            sleep(2);
+            
+            cerrarServicios();
             break;
             
         }
@@ -88,9 +86,9 @@ int main(int argc, char const *argv[])
     pthread_join (id_disconnectUser,NULL);
     pthread_join (id_receiveMessage,NULL);
 
-    
+    cerrarServicios();
 
-    return 0;
+    exit(EXIT_SUCCESS);
 }
 
 
@@ -195,7 +193,7 @@ void* th_disconnectUser(void* unused){
                     memset(message[0].mtext,0,MESSAGE_LENGTH); //limpio aux
                     message[0].mtype = (long) atoi(message[1].mtext);
                     //printf("Variable %d\n", (int)message[0].mtype);
-                    sprintf(message[0].mtext,"%s","te has desconectado");
+                    sprintf(message[0].mtext,"%s","Servidor: Salida exitosa. No vuelva");
                     length = strlen(message[0].mtext);
                     if( msgsnd(msgid_desconectar, &message[0], length+1, 0) == -1 ) perror("msgsnd fails: ");
 
@@ -220,7 +218,7 @@ void* th_disconnectUser(void* unused){
 
 
 void broadcast(char *msg){
-    printf("entro al broadcast");
+
     // printf("numero de usuarios: %d\n",count_users);
     int length;
     //struct _mbuffer buffer;
@@ -238,5 +236,23 @@ void broadcast(char *msg){
     return;
 }
 
+void cerrarServicios(void){
+
+    if( (msgctl(msgid, IPC_RMID, NULL)) == -1){
+            perror ("msgctl msgid :");
+            exit(EXIT_FAILURE);
+        } 
+    if( (msgctl(msgid_desconectar, IPC_RMID, NULL)) == -1){
+        perror ("msgctl msgid_desconectar:");
+        exit(EXIT_FAILURE);
+    } 
+    if( (msgctl(msgid_comunicacion, IPC_RMID, NULL)) == -1){
+        perror ("msgctl msgid_comunicacion :");
+        exit(EXIT_FAILURE);
+    }
+    
+    printf("Se cerraron exitosamente los servicios del servidor\n");
+    exit(EXIT_SUCCESS);
+}
 
 
